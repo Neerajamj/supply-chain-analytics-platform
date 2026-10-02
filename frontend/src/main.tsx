@@ -431,7 +431,7 @@ function Analytics({ type }: { type: string }) {
     <PageHero eyebrow={isForecast ? "DEMAND INTELLIGENCE" : "PERFORMANCE ANALYTICS"}
       title={isForecast ? "Demand, ahead of time." : "Metrics that move operations."}
       sub={isForecast ? "Forecast values retrieved from the FastAPI service." : "Operational metrics and performance analysis."}
-      action={<button className="primary" onClick={() => isForecast ? window.location.assign("http://127.0.0.1:8000/api/v1/forecast") : window.location.assign("http://127.0.0.1:8000/api/v1/insights")}><Download size={16} /> Open API data</button>} />
+      action={<button className="primary" onClick={() => isForecast ? window.location.assign(`${import.meta.env.VITE_API_URL}/api/v1/forecast`) : window.location.assign(`${import.meta.env.VITE_API_URL}/api/v1/insights`)}><Download size={16} /> Open API data</button>} />
     <div className="grid-2">
       <section className="panel chart">
         <div className="panelhead"><div><h3>{isForecast ? "Demand forecast" : "KPI trend"}</h3><p>{isForecast ? "Forecast endpoint data" : "Live operational insight summary"}</p></div></div>
