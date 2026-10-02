@@ -288,8 +288,9 @@ function Inventory() {
           return <tr key={String(p.id ?? p.product_id ?? p.sku ?? i)}>
             <td>{p.sku ?? "—"}</td><td>{p.name ?? p.product_name ?? "—"}</td>
             <td>{p.category ?? "—"}</td><td>{p.warehouse_name ?? p.warehouse ?? "—"}</td>
-            <td>{stockOf(p).toLocaleString("en-IN")}</td><td>{p.reorder_level ?? p.reorder_point ?? "—"}</td>
-            <td><span className={"badge " + health.toLowerCase().replaceAll(" ", "-")}>{health}</span></td><td><MoreHorizontal size={17} /></td>
+            <td>{stockOf(p).toLocaleString("en-IN")}</td>
+<td>{String(p.reorder_level ?? p.reorder_point ?? "—")}</td>
+            <td><span className={"badge " + health.toLowerCase().replace(/ /g, "-")}>{health}</span></td><td><MoreHorizontal size={17} /></td>
           </tr>;
         })}</tbody>
       </table>}
@@ -364,7 +365,7 @@ function Orders() {
         <thead><tr>{["Order", "Customer", "Fulfillment center", "Partner", "Status", "Value", "Order date"].map((h) => <th key={h}>{h}</th>)}</tr></thead>
         <tbody>{filtered.map((o) => <tr key={o.reference}>
           <td>{o.reference}</td><td>{o.customer}</td><td>{o.warehouse}</td><td>{o.partner}</td>
-          <td><span className={"badge " + o.status.toLowerCase().replaceAll(" ", "-")}>{o.status}</span></td>
+          <td><span className={"badge " + o.status.toLowerCase().replace(/ /g, "-")}>{o.status}</span></td>
           <td>{formatINR(Number(o.value || 0))}</td><td>{o.order_date ? new Date(o.order_date).toLocaleString("en-IN") : "—"}</td>
         </tr>)}</tbody>
       </table>}
