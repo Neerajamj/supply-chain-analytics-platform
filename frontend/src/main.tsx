@@ -1,17 +1,544 @@
-import React, {useMemo, useState} from 'react';
-import {createRoot} from 'react-dom/client';
-import {AreaChart,Area,BarChart,Bar,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,PieChart,Pie,Cell,LineChart,Line} from 'recharts';
-import {LayoutDashboard,Boxes,Warehouse,PackageCheck,Truck,ChartNoAxesCombined,BrainCircuit,FileText,Bell,Settings,Search,ChevronDown,ArrowUpRight,AlertTriangle,MoreHorizontal,Menu,X,Download,Send,MapPin} from 'lucide-react';
-import './styles.css';
+import React, { useEffect, useMemo, useState } from "react";
+import { createRoot } from "react-dom/client";
+import {
+  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer, LineChart, Line
+} from "recharts";
+import {
+  LayoutDashboard, Boxes, Warehouse, PackageCheck, Truck,
+  ChartNoAxesCombined, BrainCircuit, FileText, Bell, Settings,
+  Search, ChevronDown, ArrowUpRight, AlertTriangle, MoreHorizontal,
+  Menu, X, Download, Send, MapPin
+} from "lucide-react";
+import "./styles.css";
+import { apiFetch } from "./api";
 
-const nav: Array<[string, React.ElementType]>=[['Command Center',LayoutDashboard],['Inventory',Boxes],['Warehouses',Warehouse],['Orders',PackageCheck],['Logistics',Truck],['KPI Intelligence',ChartNoAxesCombined],['Demand Forecast',BrainCircuit],['Reports',FileText]];
-const trend=[{d:'Mon',orders:620,revenue:54},{d:'Tue',orders:720,revenue:63},{d:'Wed',orders:680,revenue:58},{d:'Thu',orders:850,revenue:76},{d:'Fri',orders:780,revenue:69},{d:'Sat',orders:940,revenue:91},{d:'Sun',orders:870,revenue:83}];
-const warehouses=[['Bengaluru FC-01','Bengaluru',89,12840,'Healthy'],['Mumbai DC-02','Mumbai',94,11210,'Watch'],['Delhi NCR-01','Gurugram',76,9920,'Healthy'],['Hyderabad FC-03','Hyderabad',68,8045,'Healthy']];
-const products=[['SKU-ELX-1042','Noise-Cancelling Headphones','Electronics','Bengaluru FC-01',18,35,'Low stock'],['SKU-HOM-2088','Organic Cotton Sheet Set','Home & Living','Mumbai DC-02',612,400,'Overstock'],['SKU-BTY-4410','Vitamin C Face Serum','Beauty','Delhi NCR-01',126,80,'Healthy'],['SKU-GRC-1193','Premium Basmati Rice 5kg','Grocery','Hyderabad FC-03',42,60,'Reorder']];
-const orders=[['#FO-2026-88291','Anika Sharma','Mumbai DC-02','Delhivery','Out for delivery','₹4,280'],['#FO-2026-88290','Rahul Mehta','Bengaluru FC-01','Ekart','Delivered','₹1,899'],['#FO-2026-88289','Sana Khan','Delhi NCR-01','Blue Dart','Shipped','₹8,760'],['#FO-2026-88288','Vikram Rao','Hyderabad FC-03','XpressBees','Packed','₹2,145']];
-function Kpi({name,value,delta,tone='mint'}:{name:string,value:string,delta:string,tone?:string}){return <div className="kpi"><div><p>{name}</p><h2>{value}</h2><span className={tone}>↗ {delta} <i>vs last month</i></span></div><div className={'orb '+tone}><ArrowUpRight size={19}/></div></div>}
-function Dashboard(){return <><section className="hero"><div><p className="eyebrow">OPERATIONS OVERVIEW <span>● LIVE</span></p><h1>Good morning, Neeraj.</h1><p className="sub">Here’s what’s happening across your fulfillment network today.</p></div><button className="primary"><Download size={16}/> Export briefing</button></section><section className="kpis"><Kpi name="Gross merchandise value" value="₹42.8L" delta="12.4%"/><Kpi name="Orders processed" value="8,249" delta="8.1%" tone="blue"/><Kpi name="Delivery SLA" value="94.8%" delta="2.3%"/><Kpi name="Fill rate" value="97.2%" delta="1.7%" tone="purple"/></section><div className="grid-2"><section className="panel chart"><div className="panelhead"><div><h3>Fulfillment velocity</h3><p>Orders and GMV over the past 7 days</p></div><button className="select">This week <ChevronDown size={15}/></button></div><ResponsiveContainer width="100%" height={260}><AreaChart data={trend}><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop stopColor="#6ee7c8" stopOpacity=".45"/><stop offset="1" stopColor="#6ee7c8" stopOpacity="0"/></linearGradient></defs><CartesianGrid vertical={false} stroke="#e9eef2"/><XAxis dataKey="d" axisLine={false} tickLine={false}/><YAxis axisLine={false} tickLine={false}/><Tooltip/><Area type="monotone" dataKey="orders" stroke="#0b8f73" strokeWidth={3} fill="url(#g)"/></AreaChart></ResponsiveContainer></section><section className="panel alerts"><div className="panelhead"><div><h3>Needs attention</h3><p>Prioritized operational signals</p></div><button className="link">View all</button></div>{[['Critical','Mumbai DC-02 is nearing capacity','94% occupied · action required'],['High','18 SKUs below reorder threshold','Estimated stockout in 3 days'],['Medium','Route BLR-07 is tracking late','22 min behind delivery SLA']].map((a,i)=><div className="alert" key={a[1]}><span className={'severity s'+i}></span><div><b>{a[0]} · {a[1]}</b><p>{a[2]}</p></div><MoreHorizontal size={18}/></div>)}</section></div><div className="grid-3"><section className="panel"><div className="panelhead"><div><h3>Warehouse utilization</h3><p>Space used across network</p></div></div>{warehouses.map(w=><div className="warehouse" key={w[0]}><div className="wh-top"><b>{w[0]}</b><span>{w[2]}%</span></div><div className="progress"><i style={{width:w[2]+'%'}}></i></div><small>{w[1]} · {Number(w[3]).toLocaleString()} orders today</small></div>)}</section><section className="panel"><div className="panelhead"><div><h3>Delivery health</h3><p>Last 24 hours</p></div></div><div className="donut"><ResponsiveContainer width={160} height={160}><PieChart><Pie data={[{value:94.8},{value:5.2}]} dataKey="value" innerRadius={55} outerRadius={75} startAngle={90} endAngle={-270}><Cell fill="#0b8f73"/><Cell fill="#e9eef2"/></Pie></PieChart></ResponsiveContainer><div><h2>94.8%</h2><p>on-time rate</p></div></div><div className="delivery-row"><span>Avg. delivery time</span><b>2.6 days</b></div><div className="delivery-row"><span>Late deliveries</span><b className="orange">428</b></div></section><section className="panel ai"><div className="spark">✦</div><p className="eyebrow">AI OPERATIONS BRIEF</p><h3>Inventory risk is concentrated in South India.</h3><p>Vitamin C Serum and Basmati Rice could miss demand by Friday. Rebalancing 420 units from Mumbai would protect an estimated ₹3.2L in GMV.</p><button className="outline">Review recommendation <ArrowUpRight size={16}/></button></section></div><section className="panel tablepanel"><div className="panelhead"><div><h3>Recent orders</h3><p>Live fulfillment queue</p></div><button className="link">Open orders <ArrowUpRight size={15}/></button></div><table><thead><tr>{['Order','Customer','Fulfillment center','Partner','Status','Value',''].map(x=><th key={x}>{x}</th>)}</tr></thead><tbody>{orders.map(o=><tr key={o[0]}>{o.map((x,i)=><td key={i}>{i===4?<span className={'badge '+x.toLowerCase().replaceAll(' ','-')}>{x}</span>:x}</td>)}<td>•••</td></tr>)}</tbody></table></section></>}
-function Inventory(){return <><section className="hero"><div><p className="eyebrow">INVENTORY CONTROL</p><h1>Stock, optimized.</h1><p className="sub">Monitor inventory health across all fulfillment centers.</p></div><button className="primary">+ Add inventory</button></section><section className="kpis"><Kpi name="Total SKUs" value="12,486" delta="3.2%"/><Kpi name="Low stock SKUs" value="184" delta="12 today" tone="orange"/><Kpi name="Inventory value" value="₹12.4Cr" delta="6.8%" tone="blue"/><Kpi name="Stockout rate" value="1.8%" delta="0.6%" tone="purple"/></section><section className="panel tablepanel"><div className="toolbar"><div className="search"><Search size={17}/><input placeholder="Search by SKU, product or supplier"/></div><button className="select">All categories <ChevronDown size={15}/></button><button className="select">All warehouses <ChevronDown size={15}/></button></div><table><thead><tr>{['SKU','Product','Category','Warehouse','On hand','Reorder level','Health',''].map(x=><th key={x}>{x}</th>)}</tr></thead><tbody>{products.map(p=><tr key={p[0]}>{p.map((x,i)=><td key={i}>{i===6?<span className={'badge '+x.toLowerCase().replaceAll(' ','-')}>{x}</span>:x}</td>)}<td>•••</td></tr>)}</tbody></table></section></>}
-function Analytics({type}:{type:string}){const forecast=[{d:'Aug 19',v:360},{d:'Aug 22',v:430},{d:'Aug 25',v:405},{d:'Aug 28',v:510},{d:'Aug 31',v:570},{d:'Sep 03',v:590},{d:'Sep 06',v:680}];return <><section className="hero"><div><p className="eyebrow">{type==='Forecast'?'DEMAND INTELLIGENCE':'PERFORMANCE ANALYTICS'}</p><h1>{type==='Forecast'?'Demand, ahead of time.':'Metrics that move operations.'}</h1><p className="sub">AI-assisted analysis of network performance and growth opportunities.</p></div><button className="primary"><Download size={16}/> Export analysis</button></section><div className="grid-2"><section className="panel chart"><div className="panelhead"><div><h3>{type==='Forecast'?'30-day demand forecast':'KPI trend'}</h3><p>{type==='Forecast'?'Expected units sold · next 30 days':'Daily operational score'}</p></div><button className="select">Monthly <ChevronDown size={15}/></button></div><ResponsiveContainer width="100%" height={300}><LineChart data={forecast}><CartesianGrid vertical={false} stroke="#e9eef2"/><XAxis dataKey="d" axisLine={false} tickLine={false}/><YAxis axisLine={false} tickLine={false}/><Tooltip/><Line type="monotone" dataKey="v" stroke="#6d5dfc" strokeWidth={3} dot={{fill:'#6d5dfc'}}/></LineChart></ResponsiveContainer></section><section className="panel ai"><div className="spark">✦</div><p className="eyebrow">AI RECOMMENDATION</p><h3>Increase replenishment on 3 fast-moving SKUs.</h3><p>Projected seasonal demand will outpace current availability in Bengaluru and Hyderabad next week. The expected uplift is 14%.</p><button className="outline">Ask FlowOps AI <ArrowUpRight size={16}/></button></section></div><section className="panel tablepanel"><div className="panelhead"><div><h3>Key performance indicators</h3><p>Measured against target for this month</p></div></div><table><thead><tr><th>Metric</th><th>Current</th><th>Target</th><th>Trend</th><th>Owner</th></tr></thead><tbody>{[['Perfect order rate','96.1%','98.0%','Improving','Operations'],['Order cycle time','18.4 hrs','< 20 hrs','Improving','Warehouse'],['Return rate','2.8%','< 3.5%','Stable','Customer Ops'],['Route efficiency','88.6%','90.0%','Improving','Logistics']].map(x=><tr key={x[0]}>{x.map(y=><td key={y}>{y}</td>)}</tr>)}</tbody></table></section></>}
-function App(){const [page,setPage]=useState('Command Center');const [open,setOpen]=useState(false);const content=useMemo(()=>page==='Command Center'?<Dashboard/>:page==='Inventory'?<Inventory/>:<Analytics type={page==='Demand Forecast'?'Forecast':'Analytics'}/>,[page]);return <div className="app"><aside className={open?'open':''}><div className="brand"><span>F</span> flowops<small>AI</small><button className="close" onClick={()=>setOpen(false)}><X/></button></div><nav>{nav.map(([label,Icon])=><button key={label} className={page===label?'active':''} onClick={()=>{setPage(label as string);setOpen(false)}}><Icon size={19}/>{label as string}{label==='Inventory'&&<em>18</em>}</button>)}</nav><div className="navfoot"><button><Bell size={19}/>Notifications <em>3</em></button><button><Settings size={19}/>Settings</button><div className="profile"><div>NM</div><span><b>Neeraj Mehta</b><small>Operations Director</small></span><ChevronDown size={15}/></div></div></aside><main><header><button className="hamb" onClick={()=>setOpen(true)}><Menu/></button><div className="crumb">Operations <span>/</span> {page}</div><div className="headright"><div className="global-search"><Search size={17}/><span>Search anything</span><kbd>⌘ K</kbd></div><button className="help">?</button><div className="avatar">NM</div></div></header><div className="content">{content}</div></main><button className="ask"><BrainCircuit size={18}/> Ask FlowOps AI</button></div>};
-createRoot(document.getElementById('root')!).render(<App/>);
+const nav: Array<[string, React.ElementType]> = [
+  ["Command Center", LayoutDashboard],
+  ["Inventory", Boxes],
+  ["Warehouses", Warehouse],
+  ["Orders", PackageCheck],
+  ["Logistics", Truck],
+  ["KPI Intelligence", ChartNoAxesCombined],
+  ["Demand Forecast", BrainCircuit],
+  ["Reports", FileText],
+];
+
+type DashboardData = {
+  total_orders: number;
+  delivered_orders: number;
+  revenue: number;
+  delivery_sla: number;
+  fill_rate: number;
+  [key: string]: unknown;
+};
+
+type Product = {
+  id?: number | string;
+  product_id?: number | string;
+  sku?: string;
+  name?: string;
+  product_name?: string;
+  category?: string;
+  warehouse?: string;
+  warehouse_name?: string;
+  quantity?: number;
+  stock_quantity?: number;
+  reorder_level?: number;
+  status?: string;
+  [key: string]: unknown;
+};
+
+type WarehouseData = {
+  id: number;
+  name: string;
+  city: string;
+  capacity: number;
+  occupied: number;
+  utilization: number;
+  employees: number;
+  daily_orders: number;
+};
+
+type OrderData = {
+  reference: string;
+  customer: string;
+  warehouse: string;
+  partner: string;
+  value: number;
+  status: string;
+  order_date: string;
+};
+
+type Insight = {
+  title?: string;
+  name?: string;
+  description?: string;
+  message?: string;
+  severity?: string;
+  category?: string;
+  [key: string]: unknown;
+};
+
+type LateDelivery = {
+  reference?: string;
+  order_reference?: string;
+  customer?: string;
+  warehouse?: string;
+  partner?: string;
+  status?: string;
+  expected_delivery?: string;
+  [key: string]: unknown;
+};
+
+function formatINR(value: number) {
+  return value.toLocaleString("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  });
+}
+
+function Kpi({
+  name, value, delta, tone = "mint",
+}: {
+  name: string; value: string; delta: string; tone?: string;
+}) {
+  return (
+    <div className="kpi">
+      <div>
+        <p>{name}</p>
+        <h2>{value}</h2>
+        <span className={tone}>{delta}</span>
+      </div>
+      <div className={"orb " + tone}><ArrowUpRight size={19} /></div>
+    </div>
+  );
+}
+
+function PageHero({
+  eyebrow, title, sub, action,
+}: {
+  eyebrow: string; title: string; sub: string; action?: React.ReactNode;
+}) {
+  return (
+    <section className="hero">
+      <div>
+        <p className="eyebrow">{eyebrow}</p>
+        <h1>{title}</h1>
+        <p className="sub">{sub}</p>
+      </div>
+      {action}
+    </section>
+  );
+}
+
+function LoadingMessage({ loading, error, empty }: {
+  loading: boolean; error: string; empty?: boolean;
+}) {
+  if (loading) return <p className="api-message">Loading live data...</p>;
+  if (error) return <p className="api-message" role="alert">{error}</p>;
+  if (empty) return <p className="api-message">No records found.</p>;
+  return null;
+}
+
+function Dashboard({ data, error }: {
+  data: DashboardData | null; error: string;
+}) {
+  const [insights, setInsights] = useState<Insight[]>([]);
+  const [insightsLoading, setInsightsLoading] = useState(true);
+  const [insightsError, setInsightsError] = useState("");
+
+  useEffect(() => {
+    apiFetch<Insight[] | { insights?: Insight[] }>("/api/v1/insights")
+      .then((response) => setInsights(Array.isArray(response) ? response : (response.insights ?? [])))
+      .catch((err) => {
+        console.error("Insights API error:", err);
+        setInsightsError("Insights are temporarily unavailable.");
+      })
+      .finally(() => setInsightsLoading(false));
+  }, []);
+
+  const trend = [
+    { day: "Mon", orders: 620 }, { day: "Tue", orders: 720 },
+    { day: "Wed", orders: 680 }, { day: "Thu", orders: 850 },
+    { day: "Fri", orders: 780 }, { day: "Sat", orders: 940 },
+    { day: "Sun", orders: 870 },
+  ];
+
+  return (
+    <>
+      <PageHero
+        eyebrow="OPERATIONS OVERVIEW"
+        title="Your supply chain, in sync."
+        sub="A live view of orders, inventory health, and fulfillment performance."
+      />
+      {error && <p role="alert" className="api-message">{error}</p>}
+      <section className="kpis">
+        <Kpi name="Gross merchandise value"
+          value={data ? formatINR(data.revenue) : "Loading..."}
+          delta={data ? "Live backend data" : "Fetching dashboard"} />
+        <Kpi name="Orders processed"
+          value={data ? data.total_orders.toLocaleString("en-IN") : "Loading..."}
+          delta={data ? `${data.delivered_orders.toLocaleString("en-IN")} delivered` : "Fetching dashboard"}
+          tone="blue" />
+        <Kpi name="Delivery SLA"
+          value={data ? `${data.delivery_sla}%` : "Loading..."}
+          delta="Live backend data" />
+        <Kpi name="Fill rate"
+          value={data ? `${data.fill_rate}%` : "Loading..."}
+          delta="Live backend data" tone="purple" />
+      </section>
+
+      <div className="grid-2">
+        <section className="panel chart">
+          <div className="panelhead">
+            <div><h3>Order activity</h3><p>Operational trend preview</p></div>
+          </div>
+          <ResponsiveContainer width="100%" height={270}>
+            <AreaChart data={trend}>
+              <defs>
+                <linearGradient id="orderFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#6d5dfc" stopOpacity={0.25} />
+                  <stop offset="100%" stopColor="#6d5dfc" stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid vertical={false} stroke="#e9eef2" />
+              <XAxis dataKey="day" axisLine={false} tickLine={false} />
+              <YAxis axisLine={false} tickLine={false} />
+              <Tooltip />
+              <Area type="monotone" dataKey="orders" stroke="#6d5dfc" fill="url(#orderFill)" strokeWidth={3} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </section>
+        <section className="panel ai">
+          <div className="spark">✦</div>
+          <p className="eyebrow">OPERATIONAL INSIGHTS</p>
+          <h3>{insights[0]?.title ?? insights[0]?.name ?? "Supply chain insights"}</h3>
+          <p>{insights[0]?.description ?? insights[0]?.message ?? (insightsError || (insightsLoading ? "Loading insights..." : "Explore the operational pages for current performance details."))}</p>
+          {insights.length > 1 && <p>{insights[1].description ?? insights[1].message ?? insights[1].title ?? ""}</p>}
+          <button className="outline" onClick={() => window.dispatchEvent(new CustomEvent("flowops:navigate", { detail: "KPI Intelligence" }))}>
+            View insights <ArrowUpRight size={16} />
+          </button>
+        </section>
+      </div>
+
+      <section className="panel tablepanel">
+        <div className="panelhead">
+          <div><h3>Network performance</h3><p>Key metrics returned by the backend</p></div>
+        </div>
+        <table>
+          <thead><tr><th>Metric</th><th>Current</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>Orders processed</td><td>{data ? data.total_orders.toLocaleString("en-IN") : "—"}</td><td>Live</td></tr>
+            <tr><td>Delivered orders</td><td>{data ? data.delivered_orders.toLocaleString("en-IN") : "—"}</td><td>Live</td></tr>
+            <tr><td>Delivery SLA</td><td>{data ? `${data.delivery_sla}%` : "—"}</td><td>Live</td></tr>
+            <tr><td>Fill rate</td><td>{data ? `${data.fill_rate}%` : "—"}</td><td>Live</td></tr>
+          </tbody>
+        </table>
+      </section>
+    </>
+  );
+}
+
+function Inventory() {
+  const [items, setItems] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    apiFetch<Product[] | { products?: Product[] }>("/api/v1/products")
+      .then((response) => setItems(Array.isArray(response) ? response : (response.products ?? [])))
+      .catch((err) => {
+        console.error("Products API error:", err);
+        setError("Unable to load products. Check your backend connection.");
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const stockOf = (p: Product) => Number(p.quantity ?? p.stock_quantity ?? p.on_hand ?? 0);
+  const reorderOf = (p: Product) => Number(p.reorder_level ?? p.reorder_point ?? 0);
+  const healthOf = (p: Product) => String(p.status ?? (stockOf(p) <= reorderOf(p) ? "Low stock" : "Healthy"));
+  const filtered = items.filter((p) =>
+    [p.sku, p.name, p.product_name, p.category, p.warehouse, p.warehouse_name, p.supplier]
+      .filter(Boolean).some((v) => String(v).toLowerCase().includes(search.toLowerCase()))
+  );
+  const lowStock = items.filter((p) => stockOf(p) <= reorderOf(p)).length;
+
+  return <>
+    <PageHero eyebrow="INVENTORY CONTROL" title="Stock, optimized."
+      sub="Monitor inventory health across all fulfillment centers."
+      action={<button className="primary">+ Add inventory</button>} />
+    <section className="kpis">
+      <Kpi name="Total SKUs" value={loading ? "Loading..." : items.length.toLocaleString("en-IN")} delta="Live data" />
+      <Kpi name="Low stock SKUs" value={loading ? "Loading..." : lowStock.toLocaleString("en-IN")} delta="Calculated from stock levels" tone="orange" />
+      <Kpi name="Inventory value" value="—" delta="Not returned by products endpoint" tone="blue" />
+      <Kpi name="Stockout rate" value="—" delta="Not returned by products endpoint" tone="purple" />
+    </section>
+    <section className="panel tablepanel">
+      <div className="toolbar">
+        <div className="search"><Search size={17} /><input placeholder="Search by SKU, product or supplier" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
+      </div>
+      <LoadingMessage loading={loading} error={error} empty={!loading && !error && filtered.length === 0} />
+      {!loading && !error && filtered.length > 0 && <table>
+        <thead><tr>{["SKU", "Product", "Category", "Warehouse", "On hand", "Reorder level", "Health", ""].map((h) => <th key={h}>{h}</th>)}</tr></thead>
+        <tbody>{filtered.map((p, i) => {
+          const health = healthOf(p);
+          return <tr key={String(p.id ?? p.product_id ?? p.sku ?? i)}>
+            <td>{p.sku ?? "—"}</td><td>{p.name ?? p.product_name ?? "—"}</td>
+            <td>{p.category ?? "—"}</td><td>{p.warehouse_name ?? p.warehouse ?? "—"}</td>
+            <td>{stockOf(p).toLocaleString("en-IN")}</td><td>{p.reorder_level ?? p.reorder_point ?? "—"}</td>
+            <td><span className={"badge " + health.toLowerCase().replaceAll(" ", "-")}>{health}</span></td><td><MoreHorizontal size={17} /></td>
+          </tr>;
+        })}</tbody>
+      </table>}
+    </section>
+  </>;
+}
+
+function Warehouses() {
+  const [items, setItems] = useState<WarehouseData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    apiFetch<WarehouseData[]>("/api/v1/warehouses")
+      .then(setItems)
+      .catch((err) => { console.error("Warehouses API error:", err); setError("Unable to load warehouses."); })
+      .finally(() => setLoading(false));
+  }, []);
+  const total = (key: "daily_orders" | "employees") => items.reduce((sum, w) => sum + Number(w[key] || 0), 0);
+  const avgUtil = items.length ? items.reduce((sum, w) => sum + Number(w.utilization || 0), 0) / items.length : 0;
+  return <>
+    <PageHero eyebrow="WAREHOUSE OPERATIONS" title="Every warehouse, in view." sub="Monitor capacity, utilization, and daily fulfillment activity." />
+    <section className="kpis">
+      <Kpi name="Total warehouses" value={loading ? "Loading..." : String(items.length)} delta="Live data" />
+      <Kpi name="Average utilization" value={loading ? "Loading..." : items.length ? `${avgUtil.toFixed(1)}%` : "—"} delta="Live data" tone="blue" />
+      <Kpi name="Daily orders" value={loading ? "Loading..." : total("daily_orders").toLocaleString("en-IN")} delta="Live data" />
+      <Kpi name="Total employees" value={loading ? "Loading..." : total("employees").toLocaleString("en-IN")} delta="Live data" tone="purple" />
+    </section>
+    <section className="panel tablepanel">
+      <div className="panelhead"><div><h3>Warehouse network</h3><p>Live capacity and operational details</p></div></div>
+      <LoadingMessage loading={loading} error={error} empty={!loading && !error && items.length === 0} />
+      {!loading && !error && items.length > 0 && <table>
+        <thead><tr>{["Warehouse", "City", "Capacity", "Occupied", "Utilization", "Employees", "Daily orders"].map((h) => <th key={h}>{h}</th>)}</tr></thead>
+        <tbody>{items.map((w) => <tr key={w.id}>
+          <td>{w.name}</td><td>{w.city}</td><td>{w.capacity.toLocaleString("en-IN")}</td><td>{w.occupied.toLocaleString("en-IN")}</td>
+          <td><span className={"badge " + (w.utilization >= 90 ? "low-stock" : "healthy")}>{w.utilization}%</span></td>
+          <td>{w.employees.toLocaleString("en-IN")}</td><td>{w.daily_orders.toLocaleString("en-IN")}</td>
+        </tr>)}</tbody>
+      </table>}
+    </section>
+  </>;
+}
+
+function Orders() {
+  const [items, setItems] = useState<OrderData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  useEffect(() => {
+    apiFetch<OrderData[] | { orders?: OrderData[] }>("/api/v1/orders?skip=0&limit=50")
+      .then((response) => setItems(Array.isArray(response) ? response : (response.orders ?? [])))
+      .catch((err) => { console.error("Orders API error:", err); setError("Unable to load orders."); })
+      .finally(() => setLoading(false));
+  }, []);
+  const filtered = items.filter((o) =>
+    [o.reference, o.customer, o.warehouse, o.partner, o.status]
+      .some((v) => String(v ?? "").toLowerCase().includes(search.toLowerCase()))
+  );
+  const delivered = items.filter((o) => o.status?.toLowerCase() === "delivered").length;
+  const shipped = items.filter((o) => o.status?.toLowerCase() === "shipped").length;
+  return <>
+    <PageHero eyebrow="ORDER MANAGEMENT" title="Every order, tracked." sub="Monitor order status and fulfillment across your network." />
+    <section className="kpis">
+      <Kpi name="Orders loaded" value={loading ? "Loading..." : items.length.toLocaleString("en-IN")} delta="Up to 50 recent orders" />
+      <Kpi name="Delivered" value={loading ? "Loading..." : delivered.toLocaleString("en-IN")} delta="Loaded orders" tone="blue" />
+      <Kpi name="Shipped" value={loading ? "Loading..." : shipped.toLocaleString("en-IN")} delta="Loaded orders" />
+      <Kpi name="Order value" value={loading ? "Loading..." : formatINR(items.reduce((sum, o) => sum + Number(o.value || 0), 0))} delta="Loaded orders" tone="purple" />
+    </section>
+    <section className="panel tablepanel">
+      <div className="toolbar"><div className="search"><Search size={17} /><input placeholder="Search order, customer, warehouse or status" value={search} onChange={(e) => setSearch(e.target.value)} /></div></div>
+      <LoadingMessage loading={loading} error={error} empty={!loading && !error && filtered.length === 0} />
+      {!loading && !error && filtered.length > 0 && <table>
+        <thead><tr>{["Order", "Customer", "Fulfillment center", "Partner", "Status", "Value", "Order date"].map((h) => <th key={h}>{h}</th>)}</tr></thead>
+        <tbody>{filtered.map((o) => <tr key={o.reference}>
+          <td>{o.reference}</td><td>{o.customer}</td><td>{o.warehouse}</td><td>{o.partner}</td>
+          <td><span className={"badge " + o.status.toLowerCase().replaceAll(" ", "-")}>{o.status}</span></td>
+          <td>{formatINR(Number(o.value || 0))}</td><td>{o.order_date ? new Date(o.order_date).toLocaleString("en-IN") : "—"}</td>
+        </tr>)}</tbody>
+      </table>}
+    </section>
+  </>;
+}
+
+function Logistics() {
+  const [items, setItems] = useState<LateDelivery[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    apiFetch<LateDelivery[] | { deliveries?: LateDelivery[] }>("/api/v1/logistics/late-deliveries")
+      .then((response) => setItems(Array.isArray(response) ? response : (response.deliveries ?? [])))
+      .catch((err) => { console.error("Late deliveries API error:", err); setError("Unable to load late deliveries."); })
+      .finally(() => setLoading(false));
+  }, []);
+  return <>
+    <PageHero eyebrow="LOGISTICS CONTROL" title="Keep deliveries moving." sub="Review late-delivery records returned by the logistics service." />
+    <section className="kpis"><Kpi name="Late deliveries returned" value={loading ? "Loading..." : String(items.length)} delta="Live API data" tone="orange" /></section>
+    <section className="panel tablepanel">
+      <div className="panelhead"><div><h3>Late deliveries</h3><p>Records from the logistics endpoint</p></div></div>
+      <LoadingMessage loading={loading} error={error} empty={!loading && !error && items.length === 0} />
+      {!loading && !error && items.length > 0 && <table>
+        <thead><tr>{["Order reference", "Customer", "Warehouse", "Partner", "Status", "Expected delivery"].map((h) => <th key={h}>{h}</th>)}</tr></thead>
+        <tbody>{items.map((d, i) => <tr key={String(d.reference ?? d.order_reference ?? i)}>
+          <td>{d.reference ?? d.order_reference ?? "—"}</td><td>{d.customer ?? "—"}</td><td>{d.warehouse ?? "—"}</td><td>{d.partner ?? "—"}</td><td>{d.status ?? "Late"}</td><td>{d.expected_delivery ? new Date(d.expected_delivery).toLocaleString("en-IN") : "—"}</td>
+        </tr>)}</tbody>
+      </table>}
+    </section>
+  </>;
+}
+
+function Analytics({ type }: { type: string }) {
+  const isForecast = type === "Forecast";
+  const [forecast, setForecast] = useState<unknown[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    if (!isForecast) { setLoading(false); return; }
+    apiFetch<unknown[] | { forecast?: unknown[]; data?: unknown[] }>("/api/v1/forecast")
+      .then((response) => {
+        const rows = Array.isArray(response) ? response : (response.forecast ?? response.data ?? []);
+        setForecast(rows);
+      })
+      .catch((err) => { console.error("Forecast API error:", err); setError("Forecast endpoint could not be loaded; displaying no fabricated forecast."); })
+      .finally(() => setLoading(false));
+  }, [isForecast]);
+
+  const chartData = forecast.map((row: any, i) => ({
+    label: String(row.date ?? row.day ?? row.ds ?? row.period ?? `Point ${i + 1}`),
+    value: Number(row.forecast ?? row.prediction ?? row.predicted_demand ?? row.demand ?? row.value ?? row.y ?? 0),
+  })).filter((row) => Number.isFinite(row.value));
+
+  const kpis = [
+    ["Perfect order rate", "—", "—", "Use KPI endpoint when available"],
+    ["Order cycle time", "—", "—", "Use KPI endpoint when available"],
+    ["Return rate", "—", "—", "Use KPI endpoint when available"],
+    ["Route efficiency", "—", "—", "Use KPI endpoint when available"],
+  ];
+
+  return <>
+    <PageHero eyebrow={isForecast ? "DEMAND INTELLIGENCE" : "PERFORMANCE ANALYTICS"}
+      title={isForecast ? "Demand, ahead of time." : "Metrics that move operations."}
+      sub={isForecast ? "Forecast values retrieved from the FastAPI service." : "Operational metrics and performance analysis."}
+      action={<button className="primary" onClick={() => isForecast ? window.location.assign("http://127.0.0.1:8000/api/v1/forecast") : window.location.assign("http://127.0.0.1:8000/api/v1/insights")}><Download size={16} /> Open API data</button>} />
+    <div className="grid-2">
+      <section className="panel chart">
+        <div className="panelhead"><div><h3>{isForecast ? "Demand forecast" : "KPI trend"}</h3><p>{isForecast ? "Forecast endpoint data" : "Live operational insight summary"}</p></div></div>
+        {isForecast && loading && <p className="api-message">Loading forecast...</p>}
+        {isForecast && error && <p role="alert" className="api-message">{error}</p>}
+        {isForecast && !loading && !error && chartData.length === 0 && <p className="api-message">No chart-compatible forecast rows returned. Inspect the API response schema to map fields.</p>}
+        {isForecast && chartData.length > 0 && <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={chartData}><CartesianGrid vertical={false} stroke="#e9eef2" /><XAxis dataKey="label" axisLine={false} tickLine={false} /><YAxis axisLine={false} tickLine={false} /><Tooltip /><Line type="monotone" dataKey="value" stroke="#6d5dfc" strokeWidth={3} dot={{ fill: "#6d5dfc" }} /></LineChart>
+        </ResponsiveContainer>}
+        {!isForecast && <p className="api-message">Detailed KPI metrics are not exposed by a dedicated KPI endpoint in the current backend routes. Dashboard metrics above use live backend data.</p>}
+      </section>
+      <section className="panel ai">
+        <div className="spark">✦</div><p className="eyebrow">OPERATIONS NOTE</p>
+        <h3>{isForecast ? "Plan replenishment using the forecast." : "Review live operational metrics."}</h3>
+        <p>{isForecast ? "Use forecast output alongside stock levels and warehouse capacity before making replenishment decisions." : "The Command Center and operational pages display data returned by the current API endpoints."}</p>
+      </section>
+    </div>
+    {!isForecast && <section className="panel tablepanel"><div className="panelhead"><div><h3>Key performance indicators</h3><p>Metrics not available from the current API are intentionally left blank.</p></div></div><table><thead><tr><th>Metric</th><th>Current</th><th>Target</th><th>Notes</th></tr></thead><tbody>{kpis.map((row) => <tr key={row[0]}>{row.map((cell) => <td key={cell}>{cell}</td>)}</tr>)}</tbody></table></section>}
+  </>;
+}
+
+function Reports() {
+  const [error, setError] = useState("");
+  const downloadReport = async () => {
+    try {
+      const base = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+      const token = localStorage.getItem("flowops_token");
+      const response = await fetch(`${base}/api/v1/reports/orders.csv`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!response.ok) throw new Error(`Report request failed (${response.status})`);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "flowops-orders-report.csv";
+      anchor.click();
+      URL.revokeObjectURL(url);
+      setError("");
+    } catch (err) {
+      console.error("Report download error:", err);
+      setError("Could not download the report. Check authentication and backend status.");
+    }
+  };
+  return <>
+    <PageHero eyebrow="REPORTING & EXPORTS" title="Reports, ready when you are." sub="Export order records from your authenticated FastAPI backend." action={<button className="primary" onClick={downloadReport}><Download size={16} /> Export orders CSV</button>} />
+    <section className="panel ai"><p className="eyebrow">ORDER REPORT</p><h3>Download order data</h3><p>The CSV is generated by the backend report endpoint.</p>{error && <p role="alert">{error}</p>}<button className="outline" onClick={downloadReport}><Download size={16} /> Download orders CSV</button></section>
+  </>;
+}
+
+function App() {
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [dashboardError, setDashboardError] = useState("");
+  const [page, setPage] = useState("Command Center");
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    apiFetch<DashboardData>("/api/v1/dashboard")
+      .then((data) => { setDashboardData(data); setDashboardError(""); })
+      .catch((err) => { console.error("Dashboard API error:", err); setDashboardError("Unable to load dashboard data. Check your login and backend connection."); });
+  }, []);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const nextPage = (event as CustomEvent<string>).detail;
+      if (nav.some(([label]) => label === nextPage)) setPage(nextPage);
+    };
+    window.addEventListener("flowops:navigate", handler);
+    return () => window.removeEventListener("flowops:navigate", handler);
+  }, []);
+
+  const content = useMemo(() => {
+    switch (page) {
+      case "Command Center": return <Dashboard data={dashboardData} error={dashboardError} />;
+      case "Inventory": return <Inventory />;
+      case "Warehouses": return <Warehouses />;
+      case "Orders": return <Orders />;
+      case "Logistics": return <Logistics />;
+      case "KPI Intelligence": return <Analytics type="Analytics" />;
+      case "Demand Forecast": return <Analytics type="Forecast" />;
+      case "Reports": return <Reports />;
+      default: return <Dashboard data={dashboardData} error={dashboardError} />;
+    }
+  }, [page, dashboardData, dashboardError]);
+
+  return <div className="app">
+    <aside className={open ? "open" : ""}>
+      <div className="brand"><span>F</span> flowops<small>AI</small><button className="close" onClick={() => setOpen(false)}><X /></button></div>
+      <nav>{nav.map(([label, Icon]) => <button key={label} className={page === label ? "active" : ""} onClick={() => { setPage(label); setOpen(false); }}><Icon size={19} />{label}{label === "Inventory" && <em>18</em>}</button>)}</nav>
+      <div className="navfoot">
+        <button><Bell size={19} />Notifications <em>3</em></button>
+        <button><Settings size={19} />Settings</button>
+        <div className="profile"><div>NM</div><span><b>Neeraja M J</b><small>Operations Director</small></span><ChevronDown size={15} /></div>
+      </div>
+    </aside>
+    <main>
+      <header>
+        <button className="hamb" onClick={() => setOpen(true)}><Menu /></button>
+        <div className="crumb">Operations <span>/</span> {page}</div>
+        <div className="headright">
+          <div className="global-search"><Search size={17} /><span>Search anything</span><kbd>⌘ K</kbd></div>
+          <button className="help">?</button><div className="avatar">NM</div>
+        </div>
+      </header>
+      <div className="content">{content}</div>
+    </main>
+    <button className="ask" onClick={() => setPage("KPI Intelligence")}><BrainCircuit size={18} /> Ask FlowOps AI</button>
+  </div>;
+}
+
+createRoot(document.getElementById("root")!).render(<App />);

@@ -10,18 +10,24 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel, ConfigDict, Field
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 from passlib.context import CryptContext
 from app.forecasting import forecast_order_demand
 
+
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
     database_url: str = "sqlite:///./flowops.db"
     secret_key: str = "development-only-secret"
     cors_origins: str = "http://localhost:5173"
     gemini_api_key: str | None = None
     gemini_model: str = "gemini-2.0-flash"
+    environment: str = "development"
+    admin_email: str | None = None
+    admin_password: str | None = None
+
 settings=Settings()
 engine=create_engine(settings.database_url)
 SessionLocal=sessionmaker(bind=engine)
@@ -60,23 +66,119 @@ class AssistantAnswer(BaseModel): answer: str; provider: str; generated_at: date
 app=FastAPI(title='FlowOps AI API',version='1.0.0',description='Supply chain intelligence REST API')
 app.add_middleware(CORSMiddleware,allow_origins=settings.cors_origins.split(','),allow_credentials=True,allow_methods=['*'],allow_headers=['*'])
 
-@app.on_event('startup')
+@app.on_event("startup")
 def seed():
+    # Refuse unsafe production configuration before touching the database.
+    if settings.environment.lower() == "production":
+        if not settings.admin_email or not settings.admin_password:
+            raise RuntimeError(
+                "ADMIN_EMAIL and ADMIN_PASSWORD must be configured in production."
+            )
+        if settings.secret_key == "development-only-secret" or len(settings.secret_key) < 32:
+            raise RuntimeError(
+                "Configure a strong SECRET_KEY (at least 32 characters) in production."
+            )
+
     Base.metadata.create_all(engine)
+
     with SessionLocal() as s:
-        if s.scalar(select(User.id).limit(1)): return
-        s.add(User(email='admin@flowops.ai',name='Neeraj Mehta',password_hash=pwd.hash('FlowOps!2026'),role=Role.ADMIN.value))
-        wh=[Warehouse(name=n,city=c,capacity=cap,occupied=int(cap*u),employees=e,daily_orders=o) for n,c,cap,u,e,o in [('Bengaluru FC-01','Bengaluru',15000,.89,185,12840),('Mumbai DC-02','Mumbai',12000,.94,142,11210),('Delhi NCR-01','Gurugram',13000,.76,162,9920),('Hyderabad FC-03','Hyderabad',11000,.68,121,8045)]]; s.add_all(wh);s.flush()
-        cats=['Electronics','Home & Living','Beauty','Grocery','Fashion']; products=[]
-        for i in range(250): products.append(Product(sku=f'SKU-{i:05}',name=f'{cats[i%5]} Product {i+1}',category=cats[i%5],supplier=f'Supplier {(i%22)+1}',price=round(random.uniform(149,14999),2),min_stock=30,max_stock=800,reorder_level=60))
-        s.add_all(products);s.flush()
-        for p in products: s.add(Inventory(product_id=p.id,warehouse_id=wh[p.id%4].id,current_stock=random.randint(15,900)))
-        statuses=['Pending','Packed','Shipped','Out for Delivery','Delivered','Cancelled']; partners=['Ekart','Delhivery','Blue Dart','XpressBees']; names=['Anika Sharma','Rahul Mehta','Sana Khan','Vikram Rao','Riya Das','Aditya Patel']
-        now=datetime.now(timezone.utc)
+        # Do not recreate seed data when the database already has users.
+        if s.scalar(select(User.id).limit(1)):
+            return
+
+        if settings.environment.lower() == "production":
+            admin_email = settings.admin_email
+            admin_password = settings.admin_password
+        else:
+            admin_email = settings.admin_email or "admin@flowops.ai"
+            admin_password = settings.admin_password or "FlowOps!2026"
+
+        s.add(
+            User(
+                email=admin_email,
+                name="FlowOps Administrator",
+                password_hash=pwd.hash(admin_password),
+                role=Role.ADMIN.value,
+            )
+        )
+
+        warehouses = [
+            Warehouse(
+                name=name,
+                city=city,
+                capacity=capacity,
+                occupied=int(capacity * utilization),
+                employees=employees,
+                daily_orders=daily_orders,
+            )
+            for name, city, capacity, utilization, employees, daily_orders in [
+                ("Bengaluru FC-01", "Bengaluru", 15000, 0.89, 185, 12840),
+                ("Mumbai DC-02", "Mumbai", 12000, 0.94, 142, 11210),
+                ("Delhi NCR-01", "Gurugram", 13000, 0.76, 162, 9920),
+                ("Hyderabad FC-03", "Hyderabad", 11000, 0.68, 121, 8045),
+            ]
+        ]
+        s.add_all(warehouses)
+        s.flush()
+
+        categories = ["Electronics", "Home & Living", "Beauty", "Grocery", "Fashion"]
+        products = []
+        for i in range(250):
+            category = categories[i % len(categories)]
+            products.append(
+                Product(
+                    sku=f"SKU-{i:05}",
+                    name=f"{category} Product {i + 1}",
+                    category=category,
+                    supplier=f"Supplier {(i % 22) + 1}",
+                    price=round(random.uniform(149, 14999), 2),
+                    min_stock=30,
+                    max_stock=800,
+                    reorder_level=60,
+                )
+            )
+        s.add_all(products)
+        s.flush()
+
+        for product in products:
+            s.add(
+                Inventory(
+                    product_id=product.id,
+                    warehouse_id=warehouses[product.id % len(warehouses)].id,
+                    current_stock=random.randint(15, 900),
+                )
+            )
+
+        statuses = ["Pending", "Packed", "Shipped", "Out for Delivery", "Delivered", "Cancelled"]
+        partners = ["Ekart", "Delhivery", "Blue Dart", "XpressBees"]
+        customers = ["Anika Sharma", "Rahul Mehta", "Sana Khan", "Vikram Rao", "Riya Das", "Aditya Patel"]
+        now = datetime.now(timezone.utc)
+
         for i in range(10000):
-            ordered=now-timedelta(days=random.randrange(365),hours=random.randrange(24)); state=random.choices(statuses,[4,8,14,10,60,4])[0]
-            s.add(Order(reference=f'FO-2026-{88000+i}',customer=random.choice(names),warehouse_id=wh[i%4].id,partner=random.choice(partners),order_value=round(random.uniform(299,18000),2),order_date=ordered,delivery_date=ordered+timedelta(days=random.randint(1,5)) if state=='Delivered' else None,status=state))
+            ordered = now - timedelta(
+                days=random.randrange(365),
+                hours=random.randrange(24),
+            )
+            order_status = random.choices(statuses, [4, 8, 14, 10, 60, 4])[0]
+            s.add(
+                Order(
+                    reference=f"FO-2026-{88000 + i}",
+                    customer=random.choice(customers),
+                    warehouse_id=warehouses[i % len(warehouses)].id,
+                    partner=random.choice(partners),
+                    order_value=round(random.uniform(299, 18000), 2),
+                    order_date=ordered,
+                    delivery_date=(
+                        ordered + timedelta(days=random.randint(1, 5))
+                        if order_status == "Delivered"
+                        else None
+                    ),
+                    status=order_status,
+                )
+            )
+
         s.commit()
+
 
 @app.get('/health')
 def health(): return {'status':'ok','service':'flowops-api'}
